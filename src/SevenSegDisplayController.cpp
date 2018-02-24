@@ -61,7 +61,8 @@ enum
   kError,       // 1
   kSetCount,    // 2
   kSetElement,  // 3
-  kClear        // 4
+  kClear,       // 4
+  kDebug        // 5
 };
 
 // Called when a received command has no attached function
@@ -75,14 +76,18 @@ void OnSetCount()
   uint16_t number = g_cmdMessenger.readInt16Arg();
   uint8_t size = numDigits(number);
 
-  char string[size + 1];
-  sprintf(string, "%d", number);
+  char string[DIGIT_COUNT + 1] = {0};
+  snprintf(string, DIGIT_COUNT + 1, "%d", number);
 
   clear();
 
-  for (uint8_t d = 1; d <= DIGIT_COUNT; d++)
+  g_cmdMessenger.sendCmd(kDebug, string);
+
+  for (uint8_t d = 0; d < DIGIT_COUNT; d++)
   {
-    g_digit[DIGIT_COUNT - d] = setNumber(g_digit[DIGIT_COUNT - d], string[size - d]);
+    char c = (d < size) ? string[min(size, DIGIT_COUNT) - d - 1] : '\0';
+    g_digit[d] = setNumber(g_digit[d], c);
+    g_cmdMessenger.sendCmd(kDebug, c);
   }
 
   g_cmdMessenger.sendCmd(kAcknowledge, "SetCount Done");
@@ -169,7 +174,7 @@ void test()
     }
   }
 
-    clear();
+  clear();
   updateDisplay();
 }
 
