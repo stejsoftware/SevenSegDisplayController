@@ -2,14 +2,19 @@
 #include <Arduino.h>
 #include <CmdMessenger.h>
 
+#include "SevenSegDisplay.h"
+
 void OnUnknownCommand();
 void OnSetCount();
+void OnSetElement();
 void OnClear();
 void OnTest();
 
-void postNumber(byte number, boolean decimal);
-void showNumber(int32_t value);
+void showNumber(int16_t value);
 void clear();
+void test();
+
+void updateDisplay();
 
 /*
  Controlling large 7-segment displays
@@ -38,12 +43,15 @@ void clear();
 */
 
 #define DIGIT_COUNT 4
+#define SEGMENT_COUNT 8
+
+uint8_t digit[DIGIT_COUNT] = {0};
 
 //GPIO declarations
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-byte segmentClock = 6;
-byte segmentLatch = 5;
-byte segmentData = 7;
+uint8_t segmentClock = 6;
+uint8_t segmentLatch = 5;
+uint8_t segmentData = 7;
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
@@ -55,8 +63,9 @@ enum
   kAcknowledge, // 0
   kError,       // 1
   kSetCount,    // 2
-  kClear,       // 3
-  kTest         // 4
+  kSetElement,  // 3
+  kClear,       // 4
+  kTest         // 5
 };
 
 // Called when a received command has no attached function
@@ -67,25 +76,32 @@ void OnUnknownCommand()
 
 void OnSetCount()
 {
-  int32_t number = cmdMessenger.readInt32Arg();
-  showNumber(number);
-
+  showNumber(cmdMessenger.readInt32Arg());
   cmdMessenger.sendCmd(kAcknowledge, "SetCount Done");
+}
+
+void OnSetElement()
+{
+  uint16_t digit = cmdMessenger.readInt16Arg();
+  uint16_t segment = cmdMessenger.readInt16Arg();
+  bool on = cmdMessenger.readBoolArg();
+
+  if ((digit < DIGIT_COUNT) && (segment < SEGMENT_COUNT))
+  {
+  }
+
+  cmdMessenger.sendCmd(kAcknowledge, "SetElement Done");
 }
 
 void OnClear()
 {
   clear();
-
   cmdMessenger.sendCmd(kAcknowledge, "Clear Done");
 }
 
 void OnTest()
 {
-  showNumber(8888);
-  delay(1000 * 3);
-  clear();
-
+  test();
   cmdMessenger.sendCmd(kAcknowledge, "Test Done");
 }
 
@@ -96,6 +112,7 @@ void setup()
   // Attach callback methods
   cmdMessenger.attach(OnUnknownCommand);
   cmdMessenger.attach(kSetCount, OnSetCount);
+  cmdMessenger.attach(kSetElement, OnSetElement);
   cmdMessenger.attach(kClear, OnClear);
   cmdMessenger.attach(kTest, OnTest);
 
@@ -107,7 +124,7 @@ void setup()
   digitalWrite(segmentData, LOW);
   digitalWrite(segmentLatch, LOW);
 
-  OnTest();
+  test();
 
   cmdMessenger.sendCmd(kAcknowledge, "Sign Started!");
 }
@@ -116,108 +133,50 @@ void loop()
 {
   // Process incoming serial data, and perform callbacks
   cmdMessenger.feedinSerialData();
+
+  // write data to the display
+  updateDisplay();
 }
 
-//Takes a number and displays 2 numbers. Displays absolute value (no negatives)
-void showNumber(int32_t value)
+void showNumber(int16_t number)
 {
-  int32_t number = value;
+  char string[DIGIT_COUNT + 2];
+  sprintf(string, "%d", number);
 
-  for (byte x = 0; x < DIGIT_COUNT; x++)
+  clear();
+
+  for (uint8_t d = 0; d < DIGIT_COUNT; d++)
   {
-    byte remainder = number % 10;
-    postNumber(remainder, false);
-    number /= 10;
+    digit[d] = setNumber(digit[d], string[d]);
   }
-
-  //Latch the current segment data
-  digitalWrite(segmentLatch, LOW);
-  digitalWrite(segmentLatch, HIGH); //Register moves storage register on the rising edge of RCK
 }
 
 void clear()
 {
-  for (byte x = 0; x < DIGIT_COUNT; x++)
+  for (uint8_t d = 0; d < DIGIT_COUNT; d++)
   {
-    postNumber(' ', false);
+    digit[d] = 0;
   }
-
-  //Latch the current segment data
-  digitalWrite(segmentLatch, LOW);
-  digitalWrite(segmentLatch, HIGH); //Register moves storage register on the rising edge of RCK
 }
 
-//Given a number, or ' ', shifts it out to the display
-void postNumber(byte number, boolean decimal)
+void test()
 {
-//    -  A
-//   / / F/B
-//    -  G
-//   / / E/C
-//    -. D/DP
+}
 
-#define a 1 << 0
-#define b 1 << 6
-#define c 1 << 5
-#define d 1 << 4
-#define e 1 << 3
-#define f 1 << 1
-#define g 1 << 2
-#define dp 1 << 7
-
-  byte segments;
-
-  switch (number)
+void updateDisplay()
+{
+  for (uint8_t d = 0; d < DIGIT_COUNT; d++)
   {
-  case 1:
-    segments = b | c;
-    break;
-  case 2:
-    segments = a | b | d | e | g;
-    break;
-  case 3:
-    segments = a | b | c | d | g;
-    break;
-  case 4:
-    segments = f | g | b | c;
-    break;
-  case 5:
-    segments = a | f | g | c | d;
-    break;
-  case 6:
-    segments = a | f | g | e | c | d;
-    break;
-  case 7:
-    segments = a | b | c;
-    break;
-  case 8:
-    segments = a | b | c | d | e | f | g;
-    break;
-  case 9:
-    segments = a | b | c | d | f | g;
-    break;
-  case 0:
-    segments = a | b | c | d | e | f;
-    break;
-  case ' ':
-    segments = 0;
-    break;
-  case 'c':
-    segments = g | e | d;
-    break;
-  case '-':
-    segments = g;
-    break;
-  }
+    // Clock these bits out to the drivers
+    for (uint8_t s = 0; s < 8; s++)
+    {
+      digitalWrite(segmentClock, LOW);
+      digitalWrite(segmentData, digit[d] & 1 << (7 - s));
+      digitalWrite(segmentClock, HIGH); // Data transfers to the register on the rising edge of SRCK
+    }
 
-  if (decimal)
-    segments |= dp;
-
-  //Clock these bits out to the drivers
-  for (byte x = 0; x < 8; x++)
-  {
-    digitalWrite(segmentClock, LOW);
-    digitalWrite(segmentData, segments & 1 << (7 - x));
-    digitalWrite(segmentClock, HIGH); //Data transfers to the register on the rising edge of SRCK
+    // Latch the current segment data
+    digitalWrite(segmentLatch, LOW);
+    digitalWrite(segmentLatch, HIGH); // Register moves storage register on the rising edge of RCK
   }
 }
