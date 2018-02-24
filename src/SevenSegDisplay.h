@@ -21,10 +21,10 @@ enum SEGMENT
     DP = 1 << 7
 };
 
-uint8_t clearSegments(uint8_t segments);
-uint8_t setSegment(uint8_t segments, SEGMENT segment);
-uint8_t setNumber(uint8_t segments, char number);
-uint8_t setDecimalPoint(uint8_t segments);
+uint8_t clearSegments(uint8_t digit);
+uint8_t setSegment(uint8_t digit, SEGMENT segment);
+uint8_t setNumber(uint8_t digit, char number);
+uint8_t setDecimalPoint(uint8_t digit);
 
 template <class T>
 uint8_t numDigits(T number)

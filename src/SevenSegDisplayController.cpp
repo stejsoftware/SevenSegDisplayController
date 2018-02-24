@@ -126,6 +126,8 @@ void setup()
 
   test();
 
+  //showNumber(123);
+
   cmdMessenger.sendCmd(kAcknowledge, "Sign Started!");
 }
 
@@ -161,6 +163,43 @@ void clear()
 
 void test()
 {
+  clear();
+
+  // turn all on for 1/2 sec
+  for (uint16_t x = 0; x < DIGIT_COUNT; x++)
+  {
+    digit[x] = setNumber(digit[x], '8');
+    digit[x] = setDecimalPoint(digit[x]);
+  }
+
+  updateDisplay();
+  delay(500);
+
+  clear();
+  updateDisplay();
+
+  SEGMENT segment[] = {F, A, B, C, DP, D, E, G};
+
+  // cycle through each segment
+  for (uint16_t x = 0; x < DIGIT_COUNT; x++)
+  {
+    for (uint16_t s = 0; s < SEGMENT_COUNT; s++)
+    {
+      clear();
+      digit[x] = setSegment(digit[x], segment[s]);
+      updateDisplay();
+      delay(200);
+    }
+  }
+
+  clear();
+  updateDisplay();
+
+  digit[0] = setNumber(digit[0], '0');
+  digit[1] = setNumber(digit[1], '1');
+  digit[2] = setNumber(digit[2], '2');
+  digit[3] = setNumber(digit[3], '3');
+  updateDisplay();
 }
 
 void updateDisplay()
@@ -174,9 +213,9 @@ void updateDisplay()
       digitalWrite(segmentData, digit[d] & 1 << (7 - s));
       digitalWrite(segmentClock, HIGH); // Data transfers to the register on the rising edge of SRCK
     }
-
-    // Latch the current segment data
-    digitalWrite(segmentLatch, LOW);
-    digitalWrite(segmentLatch, HIGH); // Register moves storage register on the rising edge of RCK
   }
+
+  // Latch the current segment data
+  digitalWrite(segmentLatch, LOW);
+  digitalWrite(segmentLatch, HIGH); // Register moves storage register on the rising edge of RCK
 }
