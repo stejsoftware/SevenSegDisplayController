@@ -6,6 +6,12 @@ uint8_t clearSegments(uint8_t segments)
     return 0;
 }
 
+uint8_t clearSegment(uint8_t segments, SEGMENT segment)
+{
+    segments |= segment;
+    return segments;
+}
+
 uint8_t setSegment(uint8_t segments, SEGMENT segment)
 {
     segments |= segment;

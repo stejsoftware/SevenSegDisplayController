@@ -22,6 +22,7 @@ enum SEGMENT
 };
 
 uint8_t clearSegments(uint8_t digit);
+uint8_t clearSegment(uint8_t digit, SEGMENT segment);
 uint8_t setSegment(uint8_t digit, SEGMENT segment);
 uint8_t setNumber(uint8_t digit, char number);
 uint8_t setDecimalPoint(uint8_t digit);

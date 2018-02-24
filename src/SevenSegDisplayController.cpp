@@ -8,12 +8,9 @@ void OnUnknownCommand();
 void OnSetCount();
 void OnSetElement();
 void OnClear();
-void OnTest();
 
-void showNumber(int16_t value);
 void clear();
 void test();
-
 void updateDisplay();
 
 /*
@@ -45,18 +42,18 @@ void updateDisplay();
 #define DIGIT_COUNT 4
 #define SEGMENT_COUNT 8
 
-uint8_t digit[DIGIT_COUNT] = {0};
+uint8_t g_digit[DIGIT_COUNT] = {0};
 
 //GPIO declarations
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-uint8_t segmentClock = 6;
-uint8_t segmentLatch = 5;
-uint8_t segmentData = 7;
+uint8_t g_segmentClock = 6;
+uint8_t g_segmentLatch = 5;
+uint8_t g_segmentData = 7;
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 // Attach a new CmdMessenger object to the default Serial port
-CmdMessenger cmdMessenger = CmdMessenger(Serial);
+CmdMessenger g_cmdMessenger = CmdMessenger(Serial);
 
 enum
 {
@@ -64,45 +61,53 @@ enum
   kError,       // 1
   kSetCount,    // 2
   kSetElement,  // 3
-  kClear,       // 4
-  kTest         // 5
+  kClear        // 4
 };
 
 // Called when a received command has no attached function
 void OnUnknownCommand()
 {
-  cmdMessenger.sendCmd(kError, "Unknown Command");
+  g_cmdMessenger.sendCmd(kError, "Unknown Command");
 }
 
 void OnSetCount()
 {
-  showNumber(cmdMessenger.readInt32Arg());
-  cmdMessenger.sendCmd(kAcknowledge, "SetCount Done");
+  uint16_t number = g_cmdMessenger.readInt16Arg();
+  uint8_t size = numDigits(number);
+
+  char string[size + 1];
+  sprintf(string, "%d", number);
+
+  clear();
+
+  for (uint8_t d = 1; d <= DIGIT_COUNT; d++)
+  {
+    g_digit[DIGIT_COUNT - d] = setNumber(g_digit[DIGIT_COUNT - d], string[size - d]);
+  }
+
+  g_cmdMessenger.sendCmd(kAcknowledge, "SetCount Done");
 }
 
 void OnSetElement()
 {
-  uint16_t digit = cmdMessenger.readInt16Arg();
-  uint16_t segment = cmdMessenger.readInt16Arg();
-  bool on = cmdMessenger.readBoolArg();
+  uint16_t digit = g_cmdMessenger.readInt16Arg();
+  uint16_t segment = g_cmdMessenger.readInt16Arg();
+  bool on = g_cmdMessenger.readBoolArg();
 
   if ((digit < DIGIT_COUNT) && (segment < SEGMENT_COUNT))
   {
+    on ? g_digit[digit] = setSegment(g_digit[digit], (SEGMENT)segment)
+       : g_digit[digit] = clearSegment(g_digit[digit], (SEGMENT)segment);
   }
 
-  cmdMessenger.sendCmd(kAcknowledge, "SetElement Done");
+  g_cmdMessenger.sendCmd(kAcknowledge, "SetElement Done");
 }
 
 void OnClear()
 {
   clear();
-  cmdMessenger.sendCmd(kAcknowledge, "Clear Done");
-}
 
-void OnTest()
-{
-  test();
-  cmdMessenger.sendCmd(kAcknowledge, "Test Done");
+  g_cmdMessenger.sendCmd(kAcknowledge, "Clear Done");
 }
 
 void setup()
@@ -110,75 +115,47 @@ void setup()
   Serial.begin(9600);
 
   // Attach callback methods
-  cmdMessenger.attach(OnUnknownCommand);
-  cmdMessenger.attach(kSetCount, OnSetCount);
-  cmdMessenger.attach(kSetElement, OnSetElement);
-  cmdMessenger.attach(kClear, OnClear);
-  cmdMessenger.attach(kTest, OnTest);
+  g_cmdMessenger.attach(OnUnknownCommand);
+  g_cmdMessenger.attach(kSetCount, OnSetCount);
+  g_cmdMessenger.attach(kSetElement, OnSetElement);
+  g_cmdMessenger.attach(kClear, OnClear);
 
-  pinMode(segmentClock, OUTPUT);
-  pinMode(segmentData, OUTPUT);
-  pinMode(segmentLatch, OUTPUT);
+  pinMode(g_segmentClock, OUTPUT);
+  pinMode(g_segmentData, OUTPUT);
+  pinMode(g_segmentLatch, OUTPUT);
 
-  digitalWrite(segmentClock, LOW);
-  digitalWrite(segmentData, LOW);
-  digitalWrite(segmentLatch, LOW);
+  digitalWrite(g_segmentClock, LOW);
+  digitalWrite(g_segmentData, LOW);
+  digitalWrite(g_segmentLatch, LOW);
 
   test();
 
-  //showNumber(123);
-
-  cmdMessenger.sendCmd(kAcknowledge, "Sign Started!");
+  g_cmdMessenger.sendCmd(kAcknowledge, "Sign Started!");
 }
 
 void loop()
 {
   // Process incoming serial data, and perform callbacks
-  cmdMessenger.feedinSerialData();
+  g_cmdMessenger.feedinSerialData();
 
   // write data to the display
   updateDisplay();
-}
-
-void showNumber(int16_t number)
-{
-  char string[DIGIT_COUNT + 2];
-  sprintf(string, "%d", number);
-
-  clear();
-
-  for (uint8_t d = 0; d < DIGIT_COUNT; d++)
-  {
-    digit[d] = setNumber(digit[d], string[d]);
-  }
 }
 
 void clear()
 {
   for (uint8_t d = 0; d < DIGIT_COUNT; d++)
   {
-    digit[d] = 0;
+    g_digit[d] = 0;
   }
 }
 
 void test()
 {
   clear();
-
-  // turn all on for 1/2 sec
-  for (uint16_t x = 0; x < DIGIT_COUNT; x++)
-  {
-    digit[x] = setNumber(digit[x], '8');
-    digit[x] = setDecimalPoint(digit[x]);
-  }
-
-  updateDisplay();
-  delay(500);
-
-  clear();
   updateDisplay();
 
-  SEGMENT segment[] = {F, A, B, C, DP, D, E, G};
+  SEGMENT segment[] = {DP, F, A, B, C, D, E, G};
 
   // cycle through each segment
   for (uint16_t x = 0; x < DIGIT_COUNT; x++)
@@ -186,19 +163,13 @@ void test()
     for (uint16_t s = 0; s < SEGMENT_COUNT; s++)
     {
       clear();
-      digit[x] = setSegment(digit[x], segment[s]);
+      g_digit[x] = setSegment(g_digit[x], segment[s]);
       updateDisplay();
-      delay(200);
+      delay(100);
     }
   }
 
-  clear();
-  updateDisplay();
-
-  digit[0] = setNumber(digit[0], '0');
-  digit[1] = setNumber(digit[1], '1');
-  digit[2] = setNumber(digit[2], '2');
-  digit[3] = setNumber(digit[3], '3');
+    clear();
   updateDisplay();
 }
 
@@ -209,13 +180,13 @@ void updateDisplay()
     // Clock these bits out to the drivers
     for (uint8_t s = 0; s < 8; s++)
     {
-      digitalWrite(segmentClock, LOW);
-      digitalWrite(segmentData, digit[d] & 1 << (7 - s));
-      digitalWrite(segmentClock, HIGH); // Data transfers to the register on the rising edge of SRCK
+      digitalWrite(g_segmentClock, LOW);
+      digitalWrite(g_segmentData, g_digit[d] & 1 << (7 - s));
+      digitalWrite(g_segmentClock, HIGH); // Data transfers to the register on the rising edge of SRCK
     }
   }
 
   // Latch the current segment data
-  digitalWrite(segmentLatch, LOW);
-  digitalWrite(segmentLatch, HIGH); // Register moves storage register on the rising edge of RCK
+  digitalWrite(g_segmentLatch, LOW);
+  digitalWrite(g_segmentLatch, HIGH); // Register moves storage register on the rising edge of RCK
 }
