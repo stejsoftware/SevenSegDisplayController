@@ -44,7 +44,7 @@ uint8_t setNumber(uint8_t segments, char number)
         segments |= A | F | G | C | D;
         break;
     case '6':
-        segments |= A | F | G | E | C | B;
+        segments |= A | F | G | E | D | C;
         break;
     case '7':
         segments |= A | B | C;
