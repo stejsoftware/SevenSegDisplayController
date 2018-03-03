@@ -71,6 +71,9 @@ void OnUnknownCommand()
   g_cmdMessenger.sendCmd(kError, "Unknown Command");
 }
 
+#define BUFF 32
+char buff[BUFF] = {0};
+
 void OnSetCount()
 {
   uint16_t number = g_cmdMessenger.readInt16Arg();
@@ -81,13 +84,16 @@ void OnSetCount()
 
   clear();
 
-  g_cmdMessenger.sendCmd(kDebug, string);
+  snprintf(buff, BUFF, "'%s'", string);
+  g_cmdMessenger.sendCmd(kDebug, buff);
 
   for (uint8_t d = 0; d < DIGIT_COUNT; d++)
   {
-    char c = (d < size) ? string[min(size, DIGIT_COUNT) - d - 1] : '\0';
+    char c = (d < min(size, DIGIT_COUNT)) ? string[min(size, DIGIT_COUNT) - d - 1] : '*';
     g_digit[d] = setNumber(g_digit[d], c);
-    g_cmdMessenger.sendCmd(kDebug, c);
+
+    snprintf(buff, BUFF, ">%c<", c);
+    g_cmdMessenger.sendCmd(kDebug, buff);
   }
 
   g_cmdMessenger.sendCmd(kAcknowledge, "SetCount Done");
@@ -160,18 +166,37 @@ void test()
   clear();
   updateDisplay();
 
-  SEGMENT segment[] = {DP, F, A, B, C, D, E, G};
+  const uint8_t rows = 5;
+  const uint8_t cols = 2;
+  SEGMENT segments[rows][cols] = {{A}, {B, F}, {G}, {C, E}, {DP, D}};
 
-  // cycle through each segment
-  for (uint16_t x = 0; x < DIGIT_COUNT; x++)
+  for (uint16_t r = 0; r < rows; r++)
   {
-    for (uint16_t s = 0; s < SEGMENT_COUNT; s++)
+    for (uint16_t d = 0; d < DIGIT_COUNT; d++)
     {
-      clear();
-      g_digit[x] = setSegment(g_digit[x], segment[s]);
-      updateDisplay();
-      delay(100);
+      for (uint8_t c = 0; c < cols; c++)
+      {
+        clear();
+
+        g_digit[d] = setSegment(g_digit[d], segments[r][c]);
+
+        updateDisplay();
+        delay(100);
+      }
     }
+  }
+
+  for (uint16_t n = '0'; n <= '9'; n++)
+  {
+    clear();
+
+    for (uint16_t d = 0; d < DIGIT_COUNT; d++)
+    {
+      g_digit[d] = setNumber(g_digit[d], n);
+    }
+
+    updateDisplay();
+    delay(500);
   }
 
   clear();

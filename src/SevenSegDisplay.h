@@ -32,7 +32,7 @@ uint8_t numDigits(T number)
 {
     uint8_t digits = 0;
 
-    if (number < 0)
+    if (number <= 0)
         digits = 1;
 
     while (number)
